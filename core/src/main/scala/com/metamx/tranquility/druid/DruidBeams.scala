@@ -18,6 +18,8 @@
  */
 package com.metamx.tranquility.druid
 
+import javax.net.ssl.SSLContext
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.smile.SmileFactory
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes
@@ -33,6 +35,7 @@ import com.metamx.common.scala.untyped.dict
 import com.metamx.common.scala.untyped.normalizeJava
 import com.metamx.emitter.core.LoggingEmitter
 import com.metamx.emitter.service.ServiceEmitter
+import com.metamx.common.scala.Logging
 import com.metamx.tranquility.beam._
 import com.metamx.tranquility.config.DataSourceConfig
 import com.metamx.tranquility.config.PropertiesBasedConfig
@@ -46,6 +49,7 @@ import com.metamx.tranquility.finagle.FinagleRegistry
 import com.metamx.tranquility.finagle.FinagleRegistryConfig
 import com.metamx.tranquility.partition.MapPartitioner
 import com.metamx.tranquility.partition.Partitioner
+import com.metamx.tranquility.security.SSLContextMaker
 import com.metamx.tranquility.tranquilizer.Tranquilizer
 import com.metamx.tranquility.typeclass.DefaultJsonWriter
 import com.metamx.tranquility.typeclass.JavaObjectWriter
@@ -93,7 +97,7 @@ import scala.reflect.runtime.universe.typeTag
   * Your event type (in this case, `Map[String, Any]`) must be serializable via Jackson to JSON that Druid can
   * understand. If Jackson is not an appropriate choice, you can provide an ObjectWriter via `.objectWriter(...)`.
   */
-object DruidBeams
+object DruidBeams extends Logging
 {
   private val DefaultScalaObjectMapper = Jackson.newObjectMapper()
   private val DefaultTimestampSpec     = new TimestampSpec("timestamp", "iso", null)
@@ -355,6 +359,7 @@ object DruidBeams
       .partitions(config.propertiesBasedConfig.taskPartitions)
       .replicants(config.propertiesBasedConfig.taskReplicants)
       .druidBeamConfig(config.propertiesBasedConfig.druidBeamConfig)
+      .generalConfig(config.propertiesBasedConfig)
   }
 
   /**
@@ -430,6 +435,15 @@ object DruidBeams
     require(fireDepartment.getIOConfig.getFirehoseFactoryV2 == null, "Expected null 'firehoseV2'")
     require(fireDepartment.getIOConfig.getPlumberSchool == null, "Expected null 'plumber'")
     fireDepartment
+  }
+
+  /**
+    * Return a new injected SSLContext
+    */
+  private[tranquility] def makeSSLContext(): Option[SSLContext] =
+  {
+    val injectedSSLContext = DruidGuicer.Default.get[SSLContext];
+    Option.apply(injectedSSLContext)
   }
 
   class Builder[InputType, EventType] private[tranquility](
@@ -726,6 +740,17 @@ object DruidBeams
     }
 
     /**
+      * Provide tunings for communication with Druid tasks. Optional, see [[DruidBeamConfig]] for defaults.
+      *
+      * @param beamConfig beam config tunings
+      * @return new builder
+      */
+    def generalConfig(generalConfig: PropertiesBasedConfig) = {
+      new Builder[InputType, EventType](config.copy(_generalConfig = Some(generalConfig)))
+    }
+
+
+    /**
       * Build a Beam using this DruidBeams builder.
       *
       * @return a beam
@@ -850,7 +875,8 @@ object DruidBeams
     _beamMergeFn: Option[Seq[Beam[EventType]] => Beam[EventType]] = None,
     _alertMap: Option[Dict] = None,
     _objectWriter: Option[ObjectWriter[EventType]] = None,
-    _timestamper: Option[Timestamper[EventType]] = None
+    _timestamper: Option[Timestamper[EventType]] = None,
+    _generalConfig: Option[PropertiesBasedConfig] = None
   )
   {
     def buildAll() = new {
@@ -905,8 +931,13 @@ object DruidBeams
           def discoPath = discoveryPath
         }
       )
-      val finagleRegistry         = _finagleRegistry getOrElse {
-        new FinagleRegistry(FinagleRegistryConfig(), Nil)
+
+      val finagleRegistry = _finagleRegistry getOrElse {
+        val finagleRegistryConfig = FinagleRegistryConfig
+          .builder()
+          .sslContextOption(SSLContextMaker.createSSLContextOption(_generalConfig.get))
+          .build()
+        new FinagleRegistry(finagleRegistryConfig, Nil)
       }
       val overlordLocator         = OverlordLocator.create(
         druidBeamConfig.overlordLocator,
@@ -916,7 +947,8 @@ object DruidBeams
       val indexService            = new IndexService(
         location.environment,
         druidBeamConfig,
-        overlordLocator
+        overlordLocator,
+        _generalConfig.get
       )
       val taskLocator             = TaskLocator.create(
         druidBeamConfig.taskLocator,
@@ -945,6 +977,7 @@ object DruidBeams
           new MergingPartitioningBeam[EventType](partitioner, beams.toIndexedSeq)
         }
       }
+      val generalConfig           = _generalConfig getOrElse PropertiesBasedConfig
     }
   }
 
