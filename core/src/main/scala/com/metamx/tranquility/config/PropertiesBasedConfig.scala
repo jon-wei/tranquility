@@ -67,7 +67,7 @@ abstract class PropertiesBasedConfig(
   def serializationFormat: String = "json"
 
   @Config(Array("zookeeper.connect"))
-  def zookeeperConnect: String
+  def zookeeperConnect: String = "localhost:2181"
 
   @Config(Array("zookeeper.timeout"))
   def zookeeperTimeout: Period = new Period("PT20S")

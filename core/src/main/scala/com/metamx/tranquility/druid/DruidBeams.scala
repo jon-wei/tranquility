@@ -931,11 +931,12 @@ object DruidBeams extends Logging
           def discoPath = discoveryPath
         }
       )
+      val generalConfig           = _generalConfig getOrElse PropertiesBasedConfig.fromDict(Dict(), classOf[PropertiesBasedConfig])
 
       val finagleRegistry = _finagleRegistry getOrElse {
         val finagleRegistryConfig = FinagleRegistryConfig
           .builder()
-          .sslContextOption(SSLContextMaker.createSSLContextOption(_generalConfig.get))
+          .sslContextOption(SSLContextMaker.createSSLContextOption(generalConfig))
           .build()
         new FinagleRegistry(finagleRegistryConfig, Nil)
       }
@@ -948,7 +949,7 @@ object DruidBeams extends Logging
         location.environment,
         druidBeamConfig,
         overlordLocator,
-        _generalConfig.get
+        generalConfig
       )
       val taskLocator             = TaskLocator.create(
         druidBeamConfig.taskLocator,
@@ -977,7 +978,6 @@ object DruidBeams extends Logging
           new MergingPartitioningBeam[EventType](partitioner, beams.toIndexedSeq)
         }
       }
-      val generalConfig           = _generalConfig getOrElse PropertiesBasedConfig
     }
   }
 
