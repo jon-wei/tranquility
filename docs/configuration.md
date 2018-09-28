@@ -73,7 +73,7 @@ Any of these properties can be specified either globally, or per-dataSource.
 |--------|-----------|-------|
 |`druid.discovery.curator.path`|Curator service discovery path. This is assumed to be on the same zookeeper cluster as `zookeeper.connect` refers to.|/druid/discovery|
 |`druid.selectors.indexing.serviceName`|The druid.service name of the indexing service Overlord node.|druid/overlord|
-|`druid.tls.enable`|Enable TLS when communicating with Druid|false|
+|`druid.tls.enable`|Enable TLS when communicating with Druid. If the Druid cluster does not have TLS enabled, this must be set to false as well.|false|
 |`druid.tls.protocol`|TLS protocol version to use.|'TLSv1.2'|
 |`druid.tls.trustStorePath`|Path of the keystore containing trusted root certificates, used to validate the certificate provided by Druid.|''|
 |`druid.tls.trustStoreType`|Type of the keystore containig trusted root certificates.|KeyStore.getDefaultType()|
