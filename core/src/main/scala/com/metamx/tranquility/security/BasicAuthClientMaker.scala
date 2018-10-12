@@ -27,14 +27,14 @@ object BasicAuthClientMaker extends Logging
 {
   def wrapBaseClient(
     baseClient: Service[http.Request, http.Response],
-    basicAuthUser: String,
-    basicAuthPass: String
+    basicAuthUser: Option[String],
+    basicAuthPass: Option[String]
   ): Service[http.Request, http.Response] = {
-    if (basicAuthUser.length > 0 && basicAuthPass.length > 0) {
-      log.info("Using BasicAuth.Client...")
-      BasicAuth.client(basicAuthUser, basicAuthPass).andThen(baseClient)
+    if (basicAuthUser.isDefined && basicAuthPass.isDefined) {
+      log.info("Using BasicAuth.Client.")
+      BasicAuth.client(basicAuthUser.get, basicAuthPass.get).andThen(baseClient)
     } else {
-      log.info("Using client without authentication..")
+      log.info("Using client without authentication.")
       baseClient
     }
   }

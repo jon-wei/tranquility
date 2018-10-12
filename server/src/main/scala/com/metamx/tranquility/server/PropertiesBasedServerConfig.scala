@@ -20,7 +20,7 @@
 package com.metamx.tranquility.server
 
 import java.security.KeyStore
-import java.util
+import java.{util => ju}
 import javax.net.ssl.KeyManagerFactory
 
 import com.metamx.tranquility.config.PropertiesBasedConfig
@@ -61,16 +61,16 @@ abstract class PropertiesBasedServerConfig
   def httpsKeyManagerPassword: String = ""
 
   @Config(Array("https.includeCipherSuites"))
-  def httpsIncludeCipherSuites: util.List[String] = null
+  def httpsIncludeCipherSuites: ju.List[String] = null
 
   @Config(Array("https.excludeCipherSuites"))
-  def httpsExcludeCipherSuites: util.List[String] = null
+  def httpsExcludeCipherSuites: ju.List[String] = null
 
   @Config(Array("https.includeProtocols"))
-  def httpsIncludeProtocols: util.List[String] = null
+  def httpsIncludeProtocols: ju.List[String] = null
 
   @Config(Array("https.excludeProtocols"))
-  def httpsExcludeProtocols: util.List[String] = null
+  def httpsExcludeProtocols: ju.List[String] = null
 
   @Config(Array("http.threads"))
   def httpThreads: Int = 40

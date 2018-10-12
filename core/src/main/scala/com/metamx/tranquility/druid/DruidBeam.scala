@@ -53,7 +53,11 @@ class DruidBeam[A](
         task ->
           new TaskClient(
             task,
-            BasicAuthClientMaker.wrapBaseClient(taskLocator.connect(task), config.basicAuthUser, config.basicAuthPass),
+            BasicAuthClientMaker.wrapBaseClient(
+              taskLocator.connect(task),
+              Some(config.basicAuthUser),
+              Some(config.basicAuthPass)
+            ),
             location.dataSource,
             config.firehoseQuietPeriod,
             config.firehoseRetryPeriod,

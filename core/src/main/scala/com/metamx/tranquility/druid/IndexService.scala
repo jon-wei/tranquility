@@ -46,7 +46,8 @@ class IndexService(
   environment: DruidEnvironment,
   config: IndexServiceConfig,
   overlordLocator: OverlordLocator,
-  generalConfig: PropertiesBasedConfig
+  basicAuthUser: Option[String],
+  basicAuthPass: Option[String]
 ) extends Closable
 {
   private implicit val timer: Timer = DefaultTimer.twitter
@@ -64,8 +65,8 @@ class IndexService(
       if (_client == null) {
         _client = BasicAuthClientMaker.wrapBaseClient(
           overlordLocator.connect(),
-          generalConfig.basicAuthUser,
-          generalConfig.basicAuthPass
+          basicAuthUser,
+          basicAuthPass
         )
       }
 

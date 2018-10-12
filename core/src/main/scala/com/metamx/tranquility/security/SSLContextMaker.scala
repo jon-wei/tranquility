@@ -7,39 +7,48 @@ import java.security.cert.CertificateException
 import javax.net.ssl.{TrustManagerFactory, SSLContext}
 
 import com.metamx.common.scala.Logging
-import com.metamx.tranquility.config.PropertiesBasedConfig
 
 object SSLContextMaker extends Logging
 {
-  def createSSLContextOption(generalConfig: PropertiesBasedConfig): Option[SSLContext] = {
-    if (!generalConfig.tlsEnable) {
+  def createSSLContextOption(
+    tlsEnable: Option[Boolean] = None,
+    tlsProtocol: Option[String] = None,
+    tlsTrustStoreType: Option[String] = None,
+    tlsTrustStorePath: Option[String] = None,
+    tlsTrustStoreAlgorithm: Option[String] = None,
+    tlsTrustStorePassword: Option[String] = None
+  ): Option[SSLContext] =
+  {
+    if (!tlsEnable.isDefined || !tlsEnable.get) {
       log.info("TLS is not enabled, skipping SSLContext creation.")
-      return Option.empty[SSLContext]
-    }
+      None
+    } else {
+      log.info("TLS is enabled, creating SSLContext.")
 
-    log.info("TLS is enabled, creating SSLContext.")
+      var sslContext: SSLContext = null
+      try {
+        sslContext = SSLContext.getInstance(tlsProtocol.getOrElse("TLSv1.2"))
+        var keyStore = KeyStore.getInstance(tlsTrustStoreType.getOrElse(KeyStore.getDefaultType()))
+        keyStore.load(
+          new FileInputStream(tlsTrustStorePath.getOrElse("")),
+          tlsTrustStorePassword.getOrElse("").toCharArray
+        )
+        var trustManagerFactory = TrustManagerFactory.getInstance(
+          tlsTrustStoreAlgorithm.getOrElse(TrustManagerFactory.getDefaultAlgorithm())
+        )
+        trustManagerFactory.init(keyStore)
+        sslContext.init(null, trustManagerFactory.getTrustManagers, null)
+      }
+      catch {
+        case ex@(_: CertificateException |
+                 _: KeyManagementException |
+                 _: IOException |
+                 _: KeyStoreException |
+                 _: NoSuchAlgorithmException) =>
+          throw new RuntimeException(ex)
+      }
 
-    var sslContext: SSLContext = null
-    try {
-      sslContext = SSLContext.getInstance(generalConfig.tlsProtocol)
-      var keyStore = KeyStore.getInstance(generalConfig.tlsTrustStoreType)
-      keyStore.load(
-        new FileInputStream(generalConfig.tlsTrustStorePath),
-        generalConfig.tlsTrustStorePassword.toCharArray
-      )
-      var trustManagerFactory = TrustManagerFactory.getInstance(generalConfig.tlsTrustStoreAlgorithm)
-      trustManagerFactory.init(keyStore)
-      sslContext.init(null, trustManagerFactory.getTrustManagers, null)
+      Some(sslContext)
     }
-    catch {
-      case ex@(_: CertificateException |
-               _: KeyManagementException |
-               _: IOException |
-               _: KeyStoreException |
-               _: NoSuchAlgorithmException) =>
-        throw new RuntimeException(ex)
-    }
-
-    Option.apply(sslContext)
   }
 }

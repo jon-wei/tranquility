@@ -115,7 +115,14 @@ object ServerMain extends App with Logging
       val finagleRegistry = finagleRegistries.getOrElseUpdate(
         (zookeeperConnect, discoPath), {
           val disco = lifecycle.addManagedInstance(new Disco(curator, dataSourceConfig.propertiesBasedConfig))
-          val sslContext = SSLContextMaker.createSSLContextOption(config.globalConfig)
+          val sslContext = SSLContextMaker.createSSLContextOption(
+            Some(config.globalConfig.tlsEnable),
+            Some(config.globalConfig.tlsProtocol),
+            Some(config.globalConfig.tlsTrustStoreType),
+            Some(config.globalConfig.tlsTrustStorePath),
+            Some(config.globalConfig.tlsTrustStoreAlgorithm),
+            Some(config.globalConfig.tlsTrustStorePassword)
+          )
           new FinagleRegistry(FinagleRegistryConfig(sslContextOption = sslContext), disco)
         }
       )
@@ -180,8 +187,6 @@ object ServerMain extends App with Logging
     config: TranquilityConfig[PropertiesBasedServerConfig]
   ): SslContextFactory = {
     val sslContextFactory = new SslContextFactory(false)
-    sslContextFactory.setKeyStorePath("")
-
     sslContextFactory.setKeyStorePath(config.globalConfig.httpsKeyStorePath)
     sslContextFactory.setKeyStoreType(config.globalConfig.httpsKeyStoreType)
     sslContextFactory.setKeyStorePassword(config.globalConfig.httpsKeyStorePassword)

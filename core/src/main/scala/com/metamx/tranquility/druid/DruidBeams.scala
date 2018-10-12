@@ -359,7 +359,13 @@ object DruidBeams extends Logging
       .partitions(config.propertiesBasedConfig.taskPartitions)
       .replicants(config.propertiesBasedConfig.taskReplicants)
       .druidBeamConfig(config.propertiesBasedConfig.druidBeamConfig)
-      .generalConfig(config.propertiesBasedConfig)
+      .basicAuthUser(config.propertiesBasedConfig.basicAuthUser)
+      .basicAuthPass(config.propertiesBasedConfig.basicAuthPass)
+      .tlsEnable(config.propertiesBasedConfig.tlsEnable)
+      .tlsProtocol(config.propertiesBasedConfig.tlsProtocol)
+      .tlsTrustStoreAlgorithm(config.propertiesBasedConfig.tlsTrustStoreAlgorithm)
+      .tlsTrustStoreType(config.propertiesBasedConfig.tlsTrustStoreType)
+      .tlsTrustStorePassword(config.propertiesBasedConfig.tlsTrustStorePassword)
   }
 
   /**
@@ -435,15 +441,6 @@ object DruidBeams extends Logging
     require(fireDepartment.getIOConfig.getFirehoseFactoryV2 == null, "Expected null 'firehoseV2'")
     require(fireDepartment.getIOConfig.getPlumberSchool == null, "Expected null 'plumber'")
     fireDepartment
-  }
-
-  /**
-    * Return a new injected SSLContext
-    */
-  private[tranquility] def makeSSLContext(): Option[SSLContext] =
-  {
-    val injectedSSLContext = DruidGuicer.Default.get[SSLContext];
-    Option.apply(injectedSSLContext)
   }
 
   class Builder[InputType, EventType] private[tranquility](
@@ -740,15 +737,100 @@ object DruidBeams extends Logging
     }
 
     /**
-      * Provide tunings for communication with Druid tasks. Optional, see [[DruidBeamConfig]] for defaults.
+      * Set the username for basic HTTP authentication.
       *
-      * @param beamConfig beam config tunings
+      * @param basicAuthUser
       * @return new builder
       */
-    def generalConfig(generalConfig: PropertiesBasedConfig) = {
-      new Builder[InputType, EventType](config.copy(_generalConfig = Some(generalConfig)))
+    def basicAuthUser(basicAuthUser: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _basicAuthUser = Some(basicAuthUser)
+      ))
     }
 
+    /**
+      * Set the password for basic HTTP authentication.
+      *
+      * @param basicAuthPass
+      * @return new builder
+      */
+    def basicAuthPass(basicAuthPass: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _basicAuthPass = Some(basicAuthPass)
+      ))
+    }
+
+    /**
+      * Enable TLS communications.
+      *
+      * @param tlsEnable
+      * @return new builder
+      */
+    def tlsEnable(tlsEnable: Boolean) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsEnable = Some(tlsEnable)
+      ))
+    }
+
+    /**
+      * Set the TLS protocol.
+      *
+      * @param tlsProtocol
+      * @return new builder
+      */
+    def tlsProtocol(tlsProtocol: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsProtocol = Some(tlsProtocol)
+      ))
+    }
+
+    /**
+      * Set the TLS truststore type.
+      *
+      * @param tlsTrustStoreType
+      * @return new builder
+      */
+    def tlsTrustStoreType(tlsTrustStoreType: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsTrustStoreType = Some(tlsTrustStoreType)
+      ))
+    }
+
+    /**
+      * Set the TLS truststore path.
+      *
+      * @param tlsTrustStorePath
+      * @return new builder
+      */
+    def tlsTrustStorePath(tlsTrustStorePath: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsTrustStorePath = Some(tlsTrustStorePath)
+      ))
+    }
+
+    /**
+      * Set the TLS truststore algorithm.
+      *
+      * @param tlsTrustStoreAlgorithm
+      * @return new builder
+      */
+    def tlsTrustStoreAlgorithm(tlsTrustStoreAlgorithm: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsTrustStoreAlgorithm = Some(tlsTrustStoreAlgorithm)
+      ))
+    }
+
+    /**
+      * Set the TLS truststore password.
+      *
+      * @param tlsTrustStorePassword
+      * @return new builder
+      */
+    def tlsTrustStorePassword(tlsTrustStorePassword: String) = {
+      new Builder[InputType, EventType](config.copy(
+        _tlsTrustStorePassword = Some(tlsTrustStorePassword)
+      ))
+    }
 
     /**
       * Build a Beam using this DruidBeams builder.
@@ -876,7 +958,14 @@ object DruidBeams extends Logging
     _alertMap: Option[Dict] = None,
     _objectWriter: Option[ObjectWriter[EventType]] = None,
     _timestamper: Option[Timestamper[EventType]] = None,
-    _generalConfig: Option[PropertiesBasedConfig] = None
+    _basicAuthUser: Option[String] = None,
+    _basicAuthPass: Option[String] = None,
+    _tlsEnable: Option[Boolean] = None,
+    _tlsProtocol: Option[String] = None,
+    _tlsTrustStoreType: Option[String] = None,
+    _tlsTrustStorePath: Option[String] = None,
+    _tlsTrustStoreAlgorithm: Option[String] = None,
+    _tlsTrustStorePassword: Option[String] = None
   )
   {
     def buildAll() = new {
@@ -931,12 +1020,19 @@ object DruidBeams extends Logging
           def discoPath = discoveryPath
         }
       )
-      val generalConfig           = _generalConfig getOrElse PropertiesBasedConfig.fromDict(Dict(), classOf[PropertiesBasedConfig])
+      //val generalConfig           = _generalConfig getOrElse PropertiesBasedConfig.fromDict(Dict(), classOf[PropertiesBasedConfig])
 
       val finagleRegistry = _finagleRegistry getOrElse {
         val finagleRegistryConfig = FinagleRegistryConfig
           .builder()
-          .sslContextOption(SSLContextMaker.createSSLContextOption(generalConfig))
+          .sslContextOption(SSLContextMaker.createSSLContextOption(
+            _tlsEnable,
+            _tlsProtocol,
+            _tlsTrustStoreType,
+            _tlsTrustStorePath,
+            _tlsTrustStoreAlgorithm,
+            _tlsTrustStorePassword
+          ))
           .build()
         new FinagleRegistry(finagleRegistryConfig, Nil)
       }
@@ -949,7 +1045,8 @@ object DruidBeams extends Logging
         location.environment,
         druidBeamConfig,
         overlordLocator,
-        generalConfig
+        _basicAuthUser,
+        _basicAuthPass
       )
       val taskLocator             = TaskLocator.create(
         druidBeamConfig.taskLocator,
